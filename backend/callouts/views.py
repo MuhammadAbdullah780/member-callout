@@ -1,3 +1,4 @@
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -56,6 +57,16 @@ class AnnouncementAIDraftView(APIView):
     def post(self, request, announcement_id):
         announcement = _announcement_for_actor(request, announcement_id)
 
+        # Rule: generated text must never reach members without a human
+        # approving it. Approval is only valid for the exact text a leader
+        # read, so an announcement that is already approved, sending, or sent
+        # can no longer be rewritten by the model.
+        if announcement.status != Announcement.Status.DRAFT:
+            raise ValidationError(
+                'Only a draft announcement can be rewritten. Approved or sent '
+                'announcements are frozen so generated text cannot bypass review.',
+            )
+
         request_serializer = AIDraftRequestSerializer(data=request.data)
         request_serializer.is_valid(raise_exception=True)
 
@@ -106,8 +117,25 @@ class AnnouncementSendView(APIView):
     permission_classes = (IsAuthenticated, IsLeadership)
 
     def post(self, request, announcement_id):
-        idempotency_key = request.headers.get('Idempotency-Key', '')
+        idempotency_key = request.headers.get('Idempotency-Key', '').strip()
+        if not idempotency_key:
+            raise ValidationError('The Idempotency-Key header is required to send.')
+
         announcement = _announcement_for_actor(request, announcement_id)
+
+        # The same key must never straddle two announcements in one local:
+        # that would make a retry ambiguous rather than idempotent.
+        conflicting = (
+            announcements_for_local(request.user.local_id)
+            .filter(client_idempotency_key=idempotency_key)
+            .exclude(pk=announcement.pk)
+            .exists()
+        )
+        if conflicting:
+            return Response(
+                {'detail': 'This Idempotency-Key was already used for another announcement.'},
+                status=status.HTTP_409_CONFLICT,
+            )
 
         if announcement.status == Announcement.Status.SENDING:
             return Response(
@@ -119,11 +147,23 @@ class AnnouncementSendView(APIView):
         if announcement.status != Announcement.Status.APPROVED:
             raise ValidationError('Only an approved announcement can be sent.')
 
-        if idempotency_key:
-            announcement.client_idempotency_key = idempotency_key
+        announcement.client_idempotency_key = idempotency_key
         announcement.status = Announcement.Status.SENDING
         announcement.sent_at = timezone.now()
-        announcement.save(update_fields=['client_idempotency_key', 'status', 'sent_at'])
+        try:
+            with transaction.atomic():
+                announcement.save(
+                    update_fields=['client_idempotency_key', 'status', 'sent_at'],
+                )
+        except IntegrityError:
+            # The SELECT above cannot be trusted across processes: behind a load
+            # balancer, two instances can both pass it before either writes. The
+            # unique (local, client_idempotency_key) constraint is the real
+            # arbiter, so a lost race answers 409 rather than a 500.
+            return Response(
+                {'detail': 'This Idempotency-Key was already used for another announcement.'},
+                status=status.HTTP_409_CONFLICT,
+            )
 
         fan_out_announcement.delay(announcement.id)
 

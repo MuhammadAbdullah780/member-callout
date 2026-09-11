@@ -76,4 +76,14 @@ flowchart LR
 
 ## Scope cut and next steps
 
-The build will log push notifications rather than use FCM/APNs, provide member read/ack APIs rather than a member UI, and omit RSVP implementation while retaining its schema. Production next steps are reminder policies, device-token lifecycle handling, rate limits, incident tooling, retention rules, backups, and independently tested multi-instance deployment.
+The build logs push notifications rather than using FCM/APNs, provides member read/ack APIs rather than a member UI, and omits RSVP implementation while retaining its schema.
+
+**Designed above but not built in this slice**, so the code is not mistaken for the full design:
+
+- **Outbox publisher.** `outbox_events` is modelled and migrated, but nothing writes to it. The slice enqueues the fan-out task directly from the send request, which loses the send if the broker is unreachable between commit and enqueue. The table exists so the publisher can be added without a migration.
+- **Row-level security.** No RLS policies are installed. Rule 1 is enforced by the tenant-scoped helpers in `callouts/querysets.py` plus per-view permission classes, with `IsAuthenticated` as the project-wide default. That is convention backed by tests, not a fail-closed database guarantee: a new endpoint that queries `Model.objects` directly would bypass it. RLS is the backstop that makes forgetting impossible, and it is the first thing I would add next.
+- **Status streaming.** The console polls `/stats/` every 3 seconds and the endpoint runs three uncached `COUNT`s per call, so four open screens cost roughly twelve counts every three seconds. At slice scale this is fine; at 22,400 deliveries it is the exact problem Part A flags. The designed answer - a status projector maintaining per-announcement counters, pushed over SSE - is not implemented.
+
+**Also worth noting:** the leadership screen has no local picker because the local is derived from the JWT, never sent by the client. That is Rule 1 working as designed rather than a missing control.
+
+Production next steps are the three items above, then reminder policies, device-token lifecycle handling, rate limits, incident tooling, retention rules, backups, and independently tested multi-instance deployment behind a load balancer (the DevOps bonus, not attempted here).

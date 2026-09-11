@@ -15,6 +15,8 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 
+from corsheaders.defaults import default_headers
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -71,6 +73,8 @@ CORS_ALLOWED_ORIGINS = [
     for o in os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
     if o.strip()
 ]
+
+CORS_ALLOW_HEADERS = (*default_headers, 'idempotency-key')
 
 ROOT_URLCONF = 'config.urls'
 

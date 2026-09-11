@@ -1,0 +1,1 @@
+{"nodes":[{"id":"callouts_views","label":"views.py","file_type":"code","source_file":"backend/callouts/views.py","source_location":"L1"}],"edges":[{"source":"callouts_views","target":"django_shortcuts","relation":"imports_from","confidence":"EXTRACTED","source_file":"backend/callouts/views.py","source_location":"L1","weight":1}]}

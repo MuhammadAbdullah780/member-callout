@@ -1,0 +1,22 @@
+services:
+  backend:
+    volumes:
+      - ./backend:/app
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
+
+  worker:
+    volumes:
+      - ./backend:/app
+    command: celery -A config worker --loglevel=info
+
+  frontend:
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      NODE_ENV: development
+      WATCHPACK_POLLING: "true"
+    command: npm run dev

@@ -1,0 +1,1 @@
+{"nodes":[{"id":"callouts_models","label":"models.py","file_type":"code","source_file":"backend/callouts/models.py","source_location":"L1"}],"edges":[{"source":"callouts_models","target":"django_db","relation":"imports_from","confidence":"EXTRACTED","source_file":"backend/callouts/models.py","source_location":"L1","weight":1}]}

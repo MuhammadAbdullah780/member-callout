@@ -1,0 +1,1 @@
+{"nodes":[{"id":"core_admin","label":"admin.py","file_type":"code","source_file":"backend/core/admin.py","source_location":"L1"}],"edges":[{"source":"core_admin","target":"django_contrib","relation":"imports_from","confidence":"EXTRACTED","source_file":"backend/core/admin.py","source_location":"L1","weight":1}]}

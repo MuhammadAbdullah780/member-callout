@@ -1,0 +1,1 @@
+{"nodes":[{"id":"core_views","label":"views.py","file_type":"code","source_file":"backend/core/views.py","source_location":"L1"}],"edges":[{"source":"core_views","target":"django_shortcuts","relation":"imports_from","confidence":"EXTRACTED","source_file":"backend/core/views.py","source_location":"L1","weight":1}]}

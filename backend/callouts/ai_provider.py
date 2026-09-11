@@ -31,31 +31,38 @@ def generate_draft(raw_text):
     Raises AIProviderError if no provider is configured, the request times out,
     or the provider returns an error. Callers must treat the result as a draft
     only - it never implies approval or sends anything.
+
+    Talks to OpenRouter's OpenAI-compatible chat completions endpoint, so any
+    model slug OpenRouter serves can be used via AI_PROVIDER_MODEL.
     """
     if not is_configured():
         raise AIProviderError('AI draft assistance is not configured for this deployment.')
 
     api_key = os.environ.get('AI_PROVIDER_API_KEY')
-    model = os.environ.get('AI_PROVIDER_MODEL', 'claude-sonnet-5')
+    model = os.environ.get('AI_PROVIDER_MODEL', 'cohere/north-mini-code:free')
 
     try:
         response = requests.post(
-            'https://api.anthropic.com/v1/messages',
+            'https://openrouter.ai/api/v1/chat/completions',
             headers={
-                'x-api-key': api_key,
-                'anthropic-version': '2023-06-01',
-                'content-type': 'application/json',
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json',
             },
             json={
                 'model': model,
                 'max_tokens': 512,
-                'system': (
-                    'Rewrite the union announcement below into a clear title, body, '
-                    'and a push notification preview of 120 characters or fewer. '
-                    f'Respond with exactly three lines prefixed "TITLE:", "BODY:", '
-                    'and "PUSH:".'
-                ),
-                'messages': [{'role': 'user', 'content': raw_text}],
+                'messages': [
+                    {
+                        'role': 'system',
+                        'content': (
+                            'Rewrite the union announcement below into a clear title, '
+                            'body, and a push notification preview of 120 characters or '
+                            'fewer. Respond with exactly three lines prefixed "TITLE:", '
+                            '"BODY:", and "PUSH:".'
+                        ),
+                    },
+                    {'role': 'user', 'content': raw_text},
+                ],
             },
             timeout=REQUEST_TIMEOUT_SECONDS,
         )
@@ -64,7 +71,7 @@ def generate_draft(raw_text):
         raise AIProviderError(f'AI provider request failed: {exc}') from exc
 
     try:
-        text = response.json()['content'][0]['text']
+        text = response.json()['choices'][0]['message']['content']
     except (KeyError, IndexError, ValueError) as exc:
         raise AIProviderError('AI provider returned an unexpected response.') from exc
 

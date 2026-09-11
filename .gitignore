@@ -1,0 +1,38 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.code-workspace
+.cursor/
+.claude/
+
+# Logs and temp
+*.log
+logs/
+tmp/
+temp/
+.cache/
+
+# Docker
+*.pid
+docker-compose.override.yml
+
+# Coverage / test artifacts at repo root
+htmlcov/
+.coverage
+coverage/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/

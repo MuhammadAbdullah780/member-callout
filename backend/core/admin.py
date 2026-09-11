@@ -1,3 +1,9 @@
 from django.contrib import admin
 
-# Register your models here.
+from core.models import Local
+
+
+@admin.register(Local)
+class LocalAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'created_at')
+    search_fields = ('name',)

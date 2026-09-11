@@ -1,7 +1,19 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import { Loader2, Radio } from 'lucide-react';
+
 import { ApiError, LoginResponse, login } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface LoginFormProps {
   onLogin: (session: LoginResponse) => void;
@@ -32,41 +44,53 @@ export function LoginForm({ onLogin }: LoginFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto mt-24 flex w-full max-w-sm flex-col gap-4">
-      <h1 className="text-xl font-semibold">CrewLink leadership login</h1>
+    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader className="items-center text-center">
+          <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Radio className="size-5" />
+          </div>
+          <CardTitle className="text-xl">CrewLink</CardTitle>
+          <CardDescription>Sign in to the leadership console</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                autoComplete="username"
+                required
+              />
+            </div>
 
-      <label className="flex flex-col gap-1 text-sm">
-        Username
-        <input
-          className="rounded border border-zinc-300 px-3 py-2"
-          value={username}
-          onChange={(event) => setUsername(event.target.value)}
-          autoComplete="username"
-          required
-        />
-      </label>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                required
+              />
+            </div>
 
-      <label className="flex flex-col gap-1 text-sm">
-        Password
-        <input
-          className="rounded border border-zinc-300 px-3 py-2"
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          autoComplete="current-password"
-          required
-        />
-      </label>
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
-      >
-        {isSubmitting ? 'Signing in...' : 'Sign in'}
-      </button>
-    </form>
+            <Button type="submit" disabled={isSubmitting} className="w-full">
+              {isSubmitting && <Loader2 className="animate-spin" />}
+              {isSubmitting ? 'Signing in…' : 'Sign in'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

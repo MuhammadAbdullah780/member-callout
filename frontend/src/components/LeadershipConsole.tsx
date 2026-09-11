@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { Loader2, LogOut, Radio, Sparkles } from 'lucide-react';
+
 import {
   Announcement,
   AnnouncementStats,
@@ -12,9 +14,41 @@ import {
   requestAIDraft,
   sendAnnouncement,
 } from '@/lib/api';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { SelectNative } from '@/components/ui/select-native';
+import { Textarea } from '@/components/ui/textarea';
 
 const CLASSIFICATIONS = ['', 'journeyman', 'apprentice', 'foreman', 'retiree'];
 const STATS_POLL_INTERVAL_MS = 3000;
+
+const STATUS_LABEL: Record<Announcement['status'], string> = {
+  draft: 'Draft',
+  approved: 'Approved',
+  sending: 'Sending',
+  sent: 'Sent',
+  cancelled: 'Cancelled',
+};
+
+const STATUS_VARIANT: Record<
+  Announcement['status'],
+  'secondary' | 'default' | 'outline'
+> = {
+  draft: 'secondary',
+  approved: 'outline',
+  sending: 'default',
+  sent: 'default',
+  cancelled: 'secondary',
+};
 
 interface LeadershipConsoleProps {
   session: LoginResponse;
@@ -37,7 +71,7 @@ export function LeadershipConsole({ session, onLogout }: LeadershipConsoleProps)
   const idempotencyKeyRef = useRef(crypto.randomUUID());
 
   useEffect(() => {
-    if (!announcement || announcement.status !== 'sending' && announcement.status !== 'sent') {
+    if (!announcement || (announcement.status !== 'sending' && announcement.status !== 'sent')) {
       return;
     }
 
@@ -70,6 +104,7 @@ export function LeadershipConsole({ session, onLogout }: LeadershipConsoleProps)
         needs_ack: needsAck,
       });
       setAnnouncement(created);
+      setStats(null);
       idempotencyKeyRef.current = crypto.randomUUID();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Failed to create draft.');
@@ -134,150 +169,179 @@ export function LeadershipConsole({ session, onLogout }: LeadershipConsoleProps)
   const isSent = announcement?.status === 'sending' || announcement?.status === 'sent';
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 py-12">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">CrewLink callout console</h1>
-          <p className="text-sm text-zinc-500">Local #{session.local_id}</p>
+    <div className="min-h-screen bg-muted/40">
+      <header className="border-b bg-background">
+        <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Radio className="size-4" />
+            </div>
+            <div>
+              <h1 className="text-sm font-semibold leading-none">CrewLink</h1>
+              <p className="mt-1 text-xs text-muted-foreground">Local #{session.local_id}</p>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onLogout}>
+            <LogOut />
+            Sign out
+          </Button>
         </div>
-        <button onClick={onLogout} className="text-sm text-zinc-500 underline">
-          Sign out
-        </button>
       </header>
 
-      <section className="flex flex-col gap-3 rounded border border-zinc-200 p-4">
-        <h2 className="font-medium">1. Compose</h2>
+      <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>1. Compose</CardTitle>
+            <CardDescription>
+              Write manually, or paste rough notes and improve them with AI.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="raw-text">Messy source text (optional)</Label>
+              <Textarea
+                id="raw-text"
+                value={rawText}
+                onChange={(event) => setRawText(event.target.value)}
+                placeholder="e.g. meeting thursday 6pm everyone needs to come re contract talks"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="self-start"
+                onClick={handleImproveWithAI}
+                disabled={isBusy || !rawText.trim()}
+              >
+                <Sparkles />
+                Improve with AI
+              </Button>
+              {aiError && <p className="text-sm text-amber-600">{aiError}</p>}
+            </div>
 
-        <label className="flex flex-col gap-1 text-sm">
-          Messy source text (optional - improve with AI below)
-          <textarea
-            className="min-h-20 rounded border border-zinc-300 px-3 py-2"
-            value={rawText}
-            onChange={(event) => setRawText(event.target.value)}
-            placeholder="e.g. meeting thursday 6pm everyone needs to come re contract talks"
-          />
-        </label>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="title">Title</Label>
+              <Input id="title" value={title} onChange={(event) => setTitle(event.target.value)} />
+            </div>
 
-        <button
-          onClick={handleImproveWithAI}
-          disabled={isBusy || !rawText.trim()}
-          className="self-start rounded border border-zinc-300 px-3 py-1.5 text-sm disabled:opacity-50"
-        >
-          Improve with AI
-        </button>
-        {aiError && <p className="text-sm text-amber-700">{aiError}</p>}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="body">Body</Label>
+              <Textarea
+                id="body"
+                className="min-h-24"
+                value={body}
+                onChange={(event) => setBody(event.target.value)}
+              />
+            </div>
 
-        <label className="flex flex-col gap-1 text-sm">
-          Title
-          <input
-            className="rounded border border-zinc-300 px-3 py-2"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-          />
-        </label>
+            {announcement?.push_preview && (
+              <p className="text-sm text-muted-foreground">
+                Push preview: “{announcement.push_preview}”
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
-        <label className="flex flex-col gap-1 text-sm">
-          Body
-          <textarea
-            className="min-h-24 rounded border border-zinc-300 px-3 py-2"
-            value={body}
-            onChange={(event) => setBody(event.target.value)}
-          />
-        </label>
+        <Card>
+          <CardHeader>
+            <CardTitle>2. Audience</CardTitle>
+            <CardDescription>Local #{session.local_id} — your local only.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="classification">Classification (optional)</Label>
+              <SelectNative
+                id="classification"
+                value={classification}
+                onChange={(event) => setClassification(event.target.value)}
+              >
+                {CLASSIFICATIONS.map((value) => (
+                  <option key={value} value={value}>
+                    {value ? value[0].toUpperCase() + value.slice(1) : 'All active members'}
+                  </option>
+                ))}
+              </SelectNative>
+            </div>
 
-        {announcement?.push_preview && (
-          <p className="text-sm text-zinc-500">Push preview: “{announcement.push_preview}”</p>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="size-4 rounded border-input"
+                checked={needsAck}
+                onChange={(event) => setNeedsAck(event.target.checked)}
+              />
+              Require acknowledgement
+            </label>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="self-start"
+              onClick={handleCreateOrUpdateDraft}
+              disabled={isBusy || !title.trim() || !body.trim()}
+            >
+              {announcement ? 'Save as new draft' : 'Create draft'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>3. Approve and send</CardTitle>
+            {announcement && (
+              <CardDescription className="flex items-center gap-2">
+                Announcement #{announcement.id}
+                <Badge variant={STATUS_VARIANT[announcement.status]}>
+                  {STATUS_LABEL[announcement.status]}
+                </Badge>
+              </CardDescription>
+            )}
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {actionError && <p className="text-sm text-destructive">{actionError}</p>}
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={handleApprove} disabled={isBusy || !canApprove}>
+                Approve draft
+              </Button>
+              <Button onClick={handleSend} disabled={isBusy || !canSend}>
+                {isBusy && <Loader2 className="animate-spin" />}
+                Send
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {isSent && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Delivery status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {stats ? (
+                <dl className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">Sent</dt>
+                    <dd className="text-2xl font-semibold">{stats.sent}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">Read</dt>
+                    <dd className="text-2xl font-semibold">{stats.read}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Acknowledged
+                    </dt>
+                    <dd className="text-2xl font-semibold">{stats.acknowledged}</dd>
+                  </div>
+                </dl>
+              ) : (
+                <p className="text-sm text-muted-foreground">Loading counts…</p>
+              )}
+            </CardContent>
+          </Card>
         )}
-      </section>
-
-      <section className="flex flex-col gap-3 rounded border border-zinc-200 p-4">
-        <h2 className="font-medium">2. Audience</h2>
-        <p className="text-sm text-zinc-500">Local #{session.local_id} (your local only)</p>
-
-        <label className="flex flex-col gap-1 text-sm">
-          Classification (optional)
-          <select
-            className="rounded border border-zinc-300 px-3 py-2"
-            value={classification}
-            onChange={(event) => setClassification(event.target.value)}
-          >
-            {CLASSIFICATIONS.map((value) => (
-              <option key={value} value={value}>
-                {value || 'All active members'}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={needsAck}
-            onChange={(event) => setNeedsAck(event.target.checked)}
-          />
-          Require acknowledgement
-        </label>
-
-        <button
-          onClick={handleCreateOrUpdateDraft}
-          disabled={isBusy || !title.trim() || !body.trim()}
-          className="self-start rounded border border-zinc-300 px-3 py-1.5 text-sm disabled:opacity-50"
-        >
-          {announcement ? 'Save as new draft' : 'Create draft'}
-        </button>
-      </section>
-
-      <section className="flex flex-col gap-3 rounded border border-zinc-200 p-4">
-        <h2 className="font-medium">3. Approve and send</h2>
-        {actionError && <p className="text-sm text-red-600">{actionError}</p>}
-
-        <div className="flex gap-3">
-          <button
-            onClick={handleApprove}
-            disabled={isBusy || !canApprove}
-            className="rounded border border-zinc-300 px-3 py-1.5 text-sm disabled:opacity-50"
-          >
-            Approve draft
-          </button>
-          <button
-            onClick={handleSend}
-            disabled={isBusy || !canSend}
-            className="rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
-          >
-            Send
-          </button>
-        </div>
-
-        {announcement && (
-          <p className="text-sm text-zinc-500">
-            Announcement #{announcement.id} - status: <strong>{announcement.status}</strong>
-          </p>
-        )}
-      </section>
-
-      {isSent && (
-        <section className="flex flex-col gap-2 rounded border border-zinc-200 p-4">
-          <h2 className="font-medium">Delivery status</h2>
-          {stats ? (
-            <dl className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <dt className="text-xs uppercase text-zinc-500">Sent</dt>
-                <dd className="text-2xl font-semibold">{stats.sent}</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase text-zinc-500">Read</dt>
-                <dd className="text-2xl font-semibold">{stats.read}</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase text-zinc-500">Acknowledged</dt>
-                <dd className="text-2xl font-semibold">{stats.acknowledged}</dd>
-              </div>
-            </dl>
-          ) : (
-            <p className="text-sm text-zinc-500">Loading counts...</p>
-          )}
-        </section>
-      )}
+      </main>
     </div>
   );
 }
